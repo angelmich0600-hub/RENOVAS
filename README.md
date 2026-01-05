@@ -3,14 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Filtro de Ventas PREMIUM - Con Fechas</title>
+    <title>Filtro de Ventas PREMIUM - Completo</title>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <style>
         body { font-family: 'Segoe UI', sans-serif; margin: 30px; background-color: #f4f7f6; color: #333; }
-        .container { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 1200px; margin: auto; }
+        .container { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 1300px; margin: auto; }
         .upload-section { border: 3px dashed #3498db; padding: 20px; text-align: center; border-radius: 10px; cursor: pointer; background: #f0faff; margin-bottom: 20px; }
         
-        /* Estilos de los Filtros */
         .filter-bar { background: #ebf2f7; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; gap: 15px; align-items: center; flex-wrap: wrap; }
         .filter-group { display: flex; flex-direction: column; gap: 5px; }
         input[type="date"], select { padding: 8px; border-radius: 5px; border: 1px solid #ccc; }
@@ -18,7 +17,6 @@
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         th, td { padding: 12px; border: 1px solid #ddd; text-align: left; font-size: 13px; }
         th { background-color: #2c3e50; color: white; cursor: pointer; }
-        th:hover { background-color: #34495e; }
         tr:nth-child(even) { background-color: #f9f9f9; }
         
         .stats { font-weight: bold; color: #1a5276; margin-bottom: 10px; }
@@ -62,10 +60,12 @@
         <table id="ventasTable">
             <thead>
                 <tr>
-                    <th>Fecha de Captura ↕</th>
+                    <th>Fecha de Captura</th>
+                    <th>ID Cliente</th>
                     <th>Cuenta AVS</th>
                     <th>Orden</th>
                     <th>Nombre del Cliente</th>
+                    <th>Usuario / Vendedor</th>
                 </tr>
             </thead>
             <tbody></tbody>
@@ -88,7 +88,6 @@
             const sheet = workbook.Sheets[workbook.SheetNames[0]];
             const jsonData = XLSX.utils.sheet_to_json(sheet);
 
-            // Procesar y limpiar datos
             datosOriginales = jsonData.filter(row => {
                 const tipo = obtenerValor(row, ['Tipo de Venta', 'TIPO']);
                 return String(tipo).trim().toUpperCase() === 'ACTIVA - PREMIUM SIN EQUIPO';
@@ -97,9 +96,11 @@
                 return {
                     fechaStr: fechaTexto,
                     fechaObjeto: parsearFecha(fechaTexto),
+                    idCliente: obtenerValor(row, ['ID Cliente', 'ID', 'CustomerID']),
                     cuenta: obtenerValor(row, ['Cuenta AVS', 'CUENTA']),
                     orden: obtenerValor(row, ['Orden', 'ORDEN']),
-                    cliente: obtenerValor(row, ['Cliente', 'NOMBRE'])
+                    cliente: obtenerValor(row, ['Cliente', 'NOMBRE', 'Nombre del Cliente']),
+                    usuario: obtenerValor(row, ['Usuario', 'Vendedor', 'USER'])
                 };
             });
 
@@ -117,7 +118,6 @@
         return "N/A";
     }
 
-    // Convierte texto DD/MM/AAAA a un objeto de fecha real para poder comparar/ordenar
     function parsearFecha(str) {
         if(!str || str === "N/A") return new Date(0);
         const partes = str.split('/');
@@ -134,21 +134,17 @@
 
         datosFiltrados = [...datosOriginales];
 
-        // Filtro de rango
         if (inicio) {
-            const dInicio = new Date(inicio);
+            const dInicio = new Date(inicio + "T00:00:00");
             datosFiltrados = datosFiltrados.filter(d => d.fechaObjeto >= dInicio);
         }
         if (fin) {
-            const dFin = new Date(fin);
+            const dFin = new Date(fin + "T23:59:59");
             datosFiltrados = datosFiltrados.filter(d => d.fechaObjeto <= dFin);
         }
 
-        // Ordenar
         datosFiltrados.sort((a, b) => {
-            return orden === 'asc' 
-                ? a.fechaObjeto - b.fechaObjeto 
-                : b.fechaObjeto - a.fechaObjeto;
+            return orden === 'asc' ? a.fechaObjeto - b.fechaObjeto : b.fechaObjeto - a.fechaObjeto;
         });
 
         renderizar();
@@ -164,9 +160,11 @@
             const tr = document.createElement('tr');
             tr.innerHTML = `
                 <td>${d.fechaStr}</td>
+                <td>${d.idCliente}</td>
                 <td>${d.cuenta}</td>
                 <td>${d.orden}</td>
                 <td>${d.cliente}</td>
+                <td>${d.usuario}</td>
             `;
             tableBody.appendChild(tr);
         });
@@ -175,14 +173,16 @@
     document.getElementById('downloadBtn').addEventListener('click', function() {
         const paraExportar = datosFiltrados.map(d => ({
             "Fecha de Captura": d.fechaStr,
+            "ID Cliente": d.idCliente,
             "Cuenta AVS": d.cuenta,
             "Orden": d.orden,
-            "Cliente": d.cliente
+            "Nombre del Cliente": d.cliente,
+            "Usuario": d.usuario
         }));
         const ws = XLSX.utils.json_to_sheet(paraExportar);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Filtrado");
-        XLSX.writeFile(wb, "Reporte_Premium_Filtrado.xlsx");
+        XLSX.writeFile(wb, "Reporte_Premium_Completo.xlsx");
     });
 </script>
 
